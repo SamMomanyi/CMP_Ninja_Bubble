@@ -1,4 +1,4 @@
-package org.example.project
+package org.sam_momanyi.game
 
 interface Platform {
     val name: String
