@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -64,6 +65,7 @@ import org.sam_momanyi.game.domain.target.MediumTarget
 import org.sam_momanyi.game.domain.target.StrongTarget
 import org.sam_momanyi.game.domain.target.Target
 import org.sam_momanyi.game.util.detectMoveGesture
+import kotlin.math.sqrt
 
 
 //each ninja frame instance should have the same size
@@ -195,6 +197,88 @@ fun MainScreen(modifier : Modifier = Modifier){
         }
     }
     //box since we stack multiple kunailayers on top of each other
+
+    LaunchedEffect(game.status){
+        while (game.status == GameStatus.Started){
+            //synchronizes the updates to prevent stattering animations
+            withFrameMillis {
+                targets.forEach { target ->
+                    scope.launch(Dispatchers.Main){
+                        target.y.animateTo(
+                            targetValue = target.y.value + target.fallingSpeed
+                        )
+                    }
+                }
+                weapons.forEach { weapon ->
+                    weapon.y += weapon.shootingSpeed
+                }
+
+                val weaponIterator = weapons.iterator()
+                while(weaponIterator.hasNext()){
+                    val weapon = weaponIterator.next()
+                    val targetIterator = targets.listIterator()
+                    while(targetIterator.hasNext()){
+                        val target = targetIterator.next()
+                        if(isCollision(weapon, target)){
+                            if(target is StrongTarget){
+                                if (target is StrongTarget) {
+                                    val newLives = target.lives - 1 // Decrease lives
+                                    if (newLives > 0) {
+                                        targetIterator.set(
+                                            element = target.copy(
+                                                radius = target.radius + 10f,
+                                                lives = newLives // Update with new lives
+                                            )
+                                        )
+                                        weaponIterator.remove()
+                                    } else {
+                                        weaponIterator.remove()
+                                        targetIterator.remove()
+                                        game = game.copy(score = game.score + 5)
+                                    }
+                                }
+                            } else if (target is MediumTarget) {
+                                val newLives = target.lives - 1 // Decrease lives
+                                if (newLives > 0) {
+                                    targetIterator.set(
+                                        element = target.copy(
+                                            radius = target.radius + 5f,
+                                            lives = newLives // Update with new lives
+                                        )
+                                    )
+                                    weaponIterator.remove()
+                                } else {
+                                    weaponIterator.remove()
+                                    targetIterator.remove()
+                                    game = game.copy(score = game.score + 5)
+                                }
+                            }else if (target is EasyTarget){
+                                weaponIterator.remove()
+                                targetIterator.remove()
+                                game = game.copy(score = game.score + 1)
+                            }
+                            break
+                        }
+                    }
+                }
+
+                //Check if Game Over
+                //when the target gets past the ninja character
+                val offScreenTarget = targets.firstOrNull {
+                    it.y.value > screenHeight
+                }
+                if(offScreenTarget != null){
+                    game = game.copy(
+                        status = GameStatus.Over
+                    )
+                    runningSprite.stop()
+                    weapons.removeAll{true}
+                    weapons.removeAll{true}
+                }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -232,36 +316,7 @@ fun MainScreen(modifier : Modifier = Modifier){
                             }
                         },
 
-//                        onLeft = {
-//                            moveDirection = MoveDirection.Left
-//                            runningSprite.start()
-//                            //we need to update and animate the ninjas offset property on when it's running
-//                            //we also need to make sure we don't move the ninja outside the screen
-//                            scope.launch(Dispatchers.Main) {
-//                                while(isRunning){
-//                                    ninjaOffsetX.animateTo(
-//                                        //we don;t want to allow negative x offset
-//                                        targetValue = if((ninjaOffsetX.value - game.settings.ninjaSpeed) >= (NINJA_FRAME_WIDTH/ 2))
-//                                        ninjaOffsetX.value - game.settings.ninjaSpeed else ninjaOffsetX.value,
-//                                        animationSpec = tween(30)
-//                                    )
-//                                }
-//                            }
-//                        },
-//                        onRight = {
-//                            moveDirection = MoveDirection.Right
-//                            runningSprite.start()
-//                            scope.launch(Dispatchers.Main) {
-//                                while(isRunning){
-//                                    ninjaOffsetX.animateTo(
-//                                        //we don;t want to allow negative x offset
-//                                        targetValue = if((ninjaOffsetX.value - game.settings.ninjaSpeed + NINJA_FRAME_WIDTH) <= screenWidth + (NINJA_FRAME_WIDTH/ 2))
-//                                            ninjaOffsetX.value + game.settings.ninjaSpeed else ninjaOffsetX.value,
-//                                        animationSpec = tween(30)
-//                                    )
-//                                }
-//                            }
-//                        },
+
                         onFingerLifted = {
                             moveDirection = MoveDirection.None
                             runningSprite.stop()
@@ -333,31 +388,55 @@ fun MainScreen(modifier : Modifier = Modifier){
         )
     }
     //we add a black overlay above our screen to allow users to manually start the game
-    if(game.status == GameStatus.Idle){
+// Show overlay for both Idle and Over states
+    if (game.status == GameStatus.Idle || game.status == GameStatus.Over) {
         Column(
             modifier = Modifier
-                .clickable(enabled = false) { }
-                .background(Color.Black.copy(alpha = 0.7f))
+                .clickable(enabled = false) { } // Prevent clicks on game while menu is up
+                .background(Color.Black.copy(alpha = 0.8f)) // Slightly darker for "Over"
                 .fillMaxSize(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Ready?",
+                text = if (game.status == GameStatus.Idle) "Ready?" else "GAME OVER",
                 fontSize = MaterialTheme.typography.displayMedium.fontSize,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = if (game.status == GameStatus.Idle) Color.White else Color.Red
             )
+
+            if (game.status == GameStatus.Over) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Final Score: ${game.score}",
+                    fontSize = MaterialTheme.typography.headlineSmall.fontSize,
+                    color = Color.White
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
+
             Button(
                 onClick = {
+                    // Reset game state
+                    weapons.clear()
+                    targets.clear()
                     game = game.copy(
                         score = 0,
-                        status = GameStatus.Started)
+                        status = GameStatus.Started
+                    )
                 }
-            ){
-                Text(text = "Start")
+            ) {
+                Text(text = if (game.status == GameStatus.Idle) "Start" else "Play Again")
             }
         }
     }
+}
+
+//returns a boolean value when those objects hit each other based on their x and y values
+fun isCollision(weapon: Weapon,target: Target): Boolean{
+    val dx = weapon.x - target.x
+    val dy = weapon.y - target.y.value
+    val distance = sqrt(dx * dx + dy * dy)
+    return distance < (weapon.radius + target.radius)
 }
