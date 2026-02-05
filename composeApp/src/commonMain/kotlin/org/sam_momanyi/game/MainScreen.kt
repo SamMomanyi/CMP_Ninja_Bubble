@@ -56,10 +56,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.imageResource
 import org.jetbrains.compose.resources.painterResource
+import org.koin.compose.koinInject
 import org.sam_momanyi.game.domain.Game
 import org.sam_momanyi.game.domain.GameStatus
 import org.sam_momanyi.game.domain.MoveDirection
 import org.sam_momanyi.game.domain.Weapon
+import org.sam_momanyi.game.domain.audio.AudioPlayer
 import org.sam_momanyi.game.domain.target.EasyTarget
 import org.sam_momanyi.game.domain.target.MediumTarget
 import org.sam_momanyi.game.domain.target.StrongTarget
@@ -80,6 +82,7 @@ const val TARGET_SIZE = 40f
 @Composable
 fun MainScreen(modifier : Modifier = Modifier){
     val scope = rememberCoroutineScope()
+    val audio = koinInject<AudioPlayer>()
     var game by remember { mutableStateOf(Game())}
     //create a mutable list variable for arrows
     val weapons = remember {
@@ -220,6 +223,7 @@ fun MainScreen(modifier : Modifier = Modifier){
                     while(targetIterator.hasNext()){
                         val target = targetIterator.next()
                         if(isCollision(weapon, target)){
+                            audio.playSound(0)
                             if(target is StrongTarget){
                                 if (target is StrongTarget) {
                                     val newLives = target.lives - 1 // Decrease lives
