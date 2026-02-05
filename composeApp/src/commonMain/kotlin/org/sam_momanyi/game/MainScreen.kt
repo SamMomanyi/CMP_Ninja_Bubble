@@ -58,10 +58,12 @@ import org.jetbrains.compose.resources.imageResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import org.sam_momanyi.game.domain.Game
+import org.sam_momanyi.game.domain.GameSettings
 import org.sam_momanyi.game.domain.GameStatus
 import org.sam_momanyi.game.domain.MoveDirection
 import org.sam_momanyi.game.domain.Weapon
 import org.sam_momanyi.game.domain.audio.AudioPlayer
+import org.sam_momanyi.game.domain.levels
 import org.sam_momanyi.game.domain.target.EasyTarget
 import org.sam_momanyi.game.domain.target.MediumTarget
 import org.sam_momanyi.game.domain.target.StrongTarget
@@ -283,6 +285,24 @@ fun MainScreen(modifier : Modifier = Modifier){
         }
     }
 
+    //we will use only the game settings
+    LaunchedEffect(game.score){
+        levels
+            //find the pair where GameLevels score matches the game.score
+            //it .first.score , the first implies to the second pair and yes a loop is created
+            .filter { it.first.score == game.score }
+            .takeIf { it.isNotEmpty() }
+            ?.forEach { (_,nextLevel) ->
+                game = game.copy(
+                    settings = GameSettings(
+                        ninjaSpeed = game.settings.ninjaSpeed + nextLevel.ninjaSpeed,
+                        weaponSpeed = game.settings.weaponSpeed + nextLevel.weaponSpeed,
+                        targetSpeed = game.settings.targetSpeed + nextLevel.targetSpeed
+                        )
+                )
+            }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -386,6 +406,11 @@ fun MainScreen(modifier : Modifier = Modifier){
             ),
         horizontalArrangement = Arrangement.SpaceBetween
     ){
+        //text to observe game level in real time
+        Text(
+            text = "Level : ${levels.firstOrNull {it.first.score >= game.score}?.first?.name ?: "MAX"}",
+            fontSize = MaterialTheme.typography.titleLarge.fontSize
+        )
         Text(
             text = "Score: ${game.score}",
             fontSize = MaterialTheme.typography.titleLarge.fontSize
@@ -419,7 +444,7 @@ fun MainScreen(modifier : Modifier = Modifier){
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
+            //we need to reset the gamesettings when we click the playAgain button
             Button(
                 onClick = {
                     // Reset game state
@@ -427,7 +452,8 @@ fun MainScreen(modifier : Modifier = Modifier){
                     targets.clear()
                     game = game.copy(
                         score = 0,
-                        status = GameStatus.Started
+                        status = GameStatus.Started,
+                        settings = GameSettings()
                     )
                 }
             ) {
