@@ -2,7 +2,7 @@
 
 A cross-platform mobile game built with **Kotlin Multiplatform** and Compose Multiplatform — runs on both Android and iOS from a single shared codebase.
 
-> Screenshots & gameplay demo coming soon.
+
 
 ---
 
@@ -40,6 +40,8 @@ A cross-platform mobile game built with **Kotlin Multiplatform** and Compose Mul
 - Running automatically fires kunai upward
 - Destroy bubbles before they reach the bottom
 - Easy = 1pt, Medium = 3pts, Strong = 5pts — don't let any through!
+![gameplay](https://github.com/user-attachments/assets/c4358661-aceb-4410-b52d-50ecfd85b909)
 
 ---
+
 
